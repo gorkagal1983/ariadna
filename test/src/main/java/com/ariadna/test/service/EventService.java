@@ -1,5 +1,6 @@
 package com.ariadna.test.service;
 
+import java.util.Date;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +22,10 @@ public class EventService {
 	
 	public List<Event> getEventsByValues(Long minValue, Long maxValue){
 		return eventRepository.findByValueRange(minValue, maxValue);
+	}
+	
+	public List<Event> getEventsByDates(List<Date> dates){
+		return eventRepository.findByTimestamps(dates);
 	}
 	
 }

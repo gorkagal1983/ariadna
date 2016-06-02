@@ -2,6 +2,8 @@ package com.ariadna.test;
 
 import java.io.File;
 import java.io.FileReader;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -12,12 +14,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
 
 import com.ariadna.test.model.Event;
 import com.ariadna.test.model.Source;
 import com.ariadna.test.repositories.EventRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @SpringBootApplication
 public class App implements CommandLineRunner {
@@ -27,7 +34,7 @@ public class App implements CommandLineRunner {
 
 	private static final String[] FILE_HEADER_MAPPING = { "event_id", "fuente_id", "fuente_nombre", "timestamp",
 			"valor" };
-
+	
 	public static void main(String[] args) {
 		SpringApplication.run(App.class, args);
 	}
@@ -46,7 +53,8 @@ public class App implements CommandLineRunner {
 		FileReader fileReader = null;
 		CSVParser csvFileParser = null;
 		CSVFormat csvFileFormat = CSVFormat.DEFAULT.withHeader(FILE_HEADER_MAPPING);
-
+		SimpleDateFormat df = new SimpleDateFormat("dd/MM/yyyy");
+		
 		try {
 			fileReader = new FileReader(file);
 			csvFileParser = new CSVParser(fileReader, csvFileFormat);
@@ -55,8 +63,9 @@ public class App implements CommandLineRunner {
 				CSVRecord record = (CSVRecord) csvRecords.get(i);
 				Source source = new Source(Long.parseLong(record.get("fuente_id")),
 						(String) record.get("fuente_nombre"));
-				Long time = Long.parseLong(record.get("timestamp"));
-				Event event = new Event(Long.parseLong(record.get("event_id")), source, new Date(time),
+				String time = record.get("timestamp");
+				Date date = df.parse(time);
+				Event event = new Event(Long.parseLong(record.get("event_id")), source, date,
 						Long.parseLong(record.get("valor")));
 
 				eventRepository.save(event);
@@ -92,6 +101,38 @@ public class App implements CommandLineRunner {
 		restTemplate = new RestTemplate();
 		responseEntity  = restTemplate.getForEntity("http://localhost:8080/events/values/10/50", Event[].class);
 		events = responseEntity.getBody();
+		printEvents(events);
+		
+		
+		System.out.println("---------------------------");
+		
+		System.out.println("Calling to getEventsByDates method:");
+		List<Date> dates = new ArrayList<Date>();
+		ObjectMapper mapper = new ObjectMapper();
+		SimpleDateFormat df = new SimpleDateFormat("dd/MM/yyyy");
+		String date1 = "30/05/2016";
+		String date2 = "11/08/2016";
+			
+		
+		String requestJson = "";
+		try{
+			Date date = df.parse(date1);
+			dates.add(date);
+			date = df.parse(date2);
+			dates.add(date);	
+			requestJson = mapper.writeValueAsString(dates);			
+		}catch(Exception ex){
+			System.out.println(ex.getMessage());
+		}
+		
+		HttpHeaders headers = new HttpHeaders();
+		headers.setContentType(MediaType.APPLICATION_JSON);		
+
+		HttpEntity<String> entity = new HttpEntity<String>(requestJson,headers);
+		responseEntity = restTemplate
+				  .exchange("http://localhost:8080/events/dates", HttpMethod.POST, entity, Event[].class);
+		events = responseEntity.getBody();
+		
 		printEvents(events);
 	}
 	
